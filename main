@@ -1,0 +1,61 @@
+from flask import Flask, request
+from twilio.twiml.voice_response import VoiceResponse, Gather
+import gspread
+from google.oauth2.service_account import Credentials
+import datetime
+import os
+
+app = Flask(__name__)
+
+
+@app.route("/", methods=['GET'])
+def home():
+    return "Voice bot działa. Użyj POST na /voice"
+@app.route("/test", methods=['GET'])
+def test():
+    return "Test endpoint działa"
+
+
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+client = gspread.authorize(creds)
+sheet = client.open("Rejestr Wizyt").sheet1 
+
+def clean_row(row):
+    return [str(item) if item is not None else "" for item in row]
+
+@app.route("/voice", methods=['POST'])
+def voice():
+    response = VoiceResponse()
+    gather = Gather(input='speech', timeout=5, language='pl-PL', action='/handle-name')
+    gather.say("Witaj! Jak się nazywasz?")
+    response.append(gather)
+    return str(response)
+
+@app.route("/handle-name", methods=['POST'])
+def handle_name():
+    name = request.form.get('SpeechResult')
+    response = VoiceResponse()
+    gather = Gather(input='speech', timeout=5, language='pl-PL', action=f"/handle-date?name={name}")
+    gather.say("Na kiedy chcesz się umówić?")
+    response.append(gather)
+    return str(response)
+
+@app.route("/handle-date", methods=['POST'])
+def handle_date():
+    name = request.args.get('name')
+    date = request.form.get('SpeechResult')
+    caller = request.form.get('From')
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    row = clean_row([timestamp, name, date, caller])
+    sheet.append_row(row)
+
+    response = VoiceResponse()
+    response.say(f"Dziękuję {name}, zapisuję wizytę na {date}. Do zobaczenia!")
+    return str(response)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=True)
+
