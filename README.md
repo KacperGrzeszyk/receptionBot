@@ -60,11 +60,7 @@ This project allows users to **schedule appointments using a voice call**. The u
 
 ---
 
-## 🔐 Security Notes
 
-- Never expose `credentials.json` publicly
-- Consider validating user input (e.g., check if the date is valid)
-- You can extend the app with SMS confirmations, admin dashboard, etc.
 
 ---
 
